@@ -1,0 +1,417 @@
+<?php
+/*
+* Plugin Name: Stealthlead
+* Description: Stealthlead Plugin.
+* Version: 1.0
+* Author: Stealthlead
+* Author URI: http://stealthlead.com
+*/
+
+
+/* Begin Adding Functions Below This Line; Do not include an opening PHP tag as this sample code already includes one! */
+
+//==============================================================================
+
+
+function show_html()
+{
+    $nameErr = $emailErr = $genderErr = $websiteErr = "";
+	$name = $email = $gender = $comment = $ac_inputWebsiteUrl = "";
+    
+?>
+
+
+<style>
+.error {color: #FF0000;}
+</style>
+
+<h3>Welcome, please enter your website url</h3>
+<form method="post" action="">
+  <div class="form-group">
+    <label for="ac_inputWebsiteUrl">Your Website url</label>
+    <input type="text" class="form-control" name="ac_inputWebsiteUrl" value="http://stealthlead.com" placeholder="http://">
+	<span class="error">* <?php echo $websiteErr;?></span>
+
+  </div>
+  <input type="submit" name="submit" value="Save" />
+</form>
+
+
+<?php
+}
+
+
+
+add_shortcode('emailLeads_shortcode_getTrackingCode', 'emailLeads_shortcode_getTrackingCode_func');
+function emailLeads_shortcode_getTrackingCode_func() 
+{
+    //echo '<h3>Welcom, please enter your website url</h3><ul>';
+    
+    if(!is_user_logged_in()) {
+        echo "<script>alert('Please log in to access your account.');</script>";
+        wp_redirect( get_home_url() );
+    }       
+        
+/*    if(is_admin())
+        return;  */  
+    
+    show_html();
+}
+
+
+add_action( 'init', 'handle_submitWebsiteUrl' );
+function handle_submitWebsiteUrl() 
+{
+	//return if was form not submitted. i.e. 'if !postback'
+	if ($_SERVER["REQUEST_METHOD"] != "POST") return;
+	//echo "<script>alert('hacked B " .$_POST["ac_inputWebsiteUrl"] . "')</script>";
+	
+	if (empty($_POST["ac_inputWebsiteUrl"])) {
+		$websiteErr = "Website is required";
+        //echo "<script>alert('hacked C')</script>";
+
+	} else {
+		$ac_inputWebsiteUrl = esc_url(sanitize_text_field(clean_input($_POST["ac_inputWebsiteUrl"])));
+	}
+	
+	if ( isset( $_POST['ac_inputWebsiteUrl'] ) ) {
+		$ac_inputWebsiteUrl = clean_input($_POST["ac_inputWebsiteUrl"]);
+	
+		//echo "<script>alert('hacked A " . $ac_inputWebsiteUrl . "')</script>";
+        
+        CallWebAPI($ac_inputWebsiteUrl);
+
+	} // end if
+
+} // end handle_submitWebsiteUrl
+
+
+function CallWebAPI($ac_inputWebsiteUrl)
+{
+    ////send url, userid, useremail, to asp
+    
+    ////get wp userid
+    //$user_ID = get_current_user_id();
+    
+    
+    global $current_user;
+    get_currentuserinfo();
+
+/*    echo 'Username: ' . $current_user->user_login . "\n";
+    echo 'User email: ' . $current_user->user_email . "\n";
+    echo 'User first name: ' . $current_user->user_firstname . "\n";
+    echo 'User last name: ' . $current_user->user_lastname . "\n";
+    echo 'User display name: ' . $current_user->display_name . "\n";
+    echo 'User ID: ' . $current_user->ID . "\n";*/
+    
+    ////call webapi
+    
+    $data = array( 
+        'websiteUrl' => $ac_inputWebsiteUrl,
+        'userID' => $current_user->ID,
+        'userEmail' => $current_user->user_email
+    );
+    
+    //$data = 'data' => $data
+    
+    //$data = "test";
+    
+    $APIUrl = "http://stealthlead.com/api/wordpress/PostNewWebsite";
+    //$APIUrl = "http://stealthlead.com/api/NewWebsite";
+    
+    $result = CallAPI("POST", $APIUrl, $data);
+    //$result = CallAPI("POST", $APIUrl);
+    //$result = '{"js_tracking_code": 12345}';
+    
+    ////RECEIVE JS SCRIPT AND DISPLAY IN JS SCRIPT BOX
+    
+    
+    
+    
+    //$json = json_encode($myObject);
+    $obj = json_decode($result);
+    //$obj = json_decode($json, true); //returns array of objs
+        
+    acdebug($result, -1);
+    acdebug($obj->{'js_tracking_code'}, 0);
+    acdebug($obj->{'js_tracking_code2'}, 1);
+
+}
+
+
+function clean_input($data) 
+{
+  $data = trim($data);
+  $data = stripslashes($data);
+  $data = htmlspecialchars($data);
+  return $data;
+}
+
+// Method: POST, PUT, GET etc
+// Data: array("param" => "value") ==> index.php?param=value
+function CallAPIOld($method, $url, $json = "")
+{
+    $curl = curl_init();
+
+    switch ($method)
+    {
+        case "POST":
+            curl_setopt($curl, CURLOPT_POST, 1);
+
+            if ($data)
+                curl_setopt($curl, CURLOPT_POSTFIELDS, $json);
+            break;
+        case "PUT":
+            curl_setopt($curl, CURLOPT_PUT, 1);
+            break;
+        default:
+            if ($data)
+                $url = sprintf("%s?%s", $url, http_build_query($data));
+    }
+
+    // Optional Authentication:
+    curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($curl, CURLOPT_USERPWD, "username:password");
+
+    curl_setopt($curl, CURLOPT_HEADER, "application/json");
+    
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    
+    ///debug only - route thru fiddler for debugging
+    curl_setopt($curl, CURLOPT_PROXY, '127.0.0.1:8888');//xxxx
+
+    
+    acdebug($curl, 100);
+
+    $result = curl_exec($curl);
+    
+    if($result === false)
+    {
+        //echo 'Curl error: ' . curl_error($curl);
+        acdebug("Curl error: " . curl_error($curl), 3);
+    }
+    else
+    {
+        //echo 'Operation completed without any errors: ' . $result;
+        //acdebug("Operation completed without any errors: " . $result, 4);
+    }
+    
+    //echo "<script>alert($result)</script>";
+
+
+    curl_close($curl);
+
+    return $result;
+}
+
+// Method: POST, PUT, GET etc
+// Data: array("param" => "value") ==> index.php?param=value
+function CallAPI($method, $url, $data = false, $isPostJson = true)
+{
+    $curl = curl_init();
+
+    switch ($method)
+    {
+        case "POST":
+        
+            if($isPostJson){
+                curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST");
+                if ($data){
+                    //$data_string = json_encode($data);  
+                    $data_string = http_build_query($data);  
+                    curl_setopt($curl, CURLOPT_POSTFIELDS, $data_string);
+                    curl_setopt($curl, CURLOPT_HTTPHEADER, array(        
+                        'Accept: application/json', 
+                        //'Content-Type: application/json', -webapi expects the default application/x-www-form-urlencoded
+                        'Content-Length: ' . strlen($data_string)
+                    )  
+                    );     
+                }
+            }else{
+                curl_setopt($curl, CURLOPT_POST, 1);
+                if ($data)
+                    curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+            }
+                
+            break;
+        case "PUT":
+            curl_setopt($curl, CURLOPT_PUT, 1);
+            break;
+        default:
+            if ($data)
+                $url = sprintf("%s?%s", $url, http_build_query($data));
+    }
+
+    // Optional Authentication:
+    //curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    //curl_setopt($curl, CURLOPT_USERPWD, "username:password");
+    
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    
+    ///debug only - route thru fiddler for debugging
+    curl_setopt($curl, CURLOPT_PROXY, '127.0.0.1:8888');//xxxx
+
+    
+    acdebug($curl, 100);
+
+    $result = curl_exec($curl);
+    
+    if($result === false)
+    {
+        //echo 'Curl error: ' . curl_error($curl);
+        acdebug("Curl error: " . curl_error($curl), 3);
+    }
+    else
+    {
+        //echo 'Operation completed without any errors: ' . $result;
+        //acdebug("Operation completed without any errors: " . $result, 4);
+    }
+    
+    //echo "<script>alert($result)</script>";
+
+
+    curl_close($curl);
+
+    return $result;
+}
+
+function acdebug($error, $tag = '')
+{
+    //PC::debug('AC DEBUG '.$tag.': ' . $error);
+}
+
+
+
+
+
+//===========================================================================
+
+/*
+function wprdcv_param_redirect(){
+	// if( !is_admin() && !isset($_GET['trk']) && !isset($_GET['cam'])){
+		// $location = "http://".$_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI'];
+		// $location .= "?CUSTOM=PARAM1";
+		// wp_redirect( $location );
+	// }
+	
+	if( is_admin() ) return;
+	
+	if( isset($_GET['reset']) )
+	{
+		setcookie( 'trk', '', time() - 3600);//delete when on any path
+		setcookie( 'trk', '', time() - 3600, '/');//delete when on root
+		//setcookie( 'cam', '', time() - 3600, '/');
+		return;
+	}
+	
+	// # Get the value of trk if specified on the URL (GET) or in a cookie
+	// # If non of those place have the trk, then trk will be NULL
+	// $trk = isset($_GET['trk']) ? $_GET['trk'] : (
+		// isset($_COOKIE['trk']) ? $_COOKIE['trk'] : NULL
+	// );
+
+	// # If we know what trk we have and didn't just get it from a cookie
+	// # then set a cookie with that trk as its value
+	// if ($trk != NULL && isset(! $_GET['cookie'])) {
+		// setcookie('trk', $trk);
+	// }
+	
+	if( isset($_GET['trk']) ){
+		$trk = $_GET['trk'];
+		setcookie('trk', $trk, time()+3600*24*365*10, '/');
+		
+	} else{
+		if(isset($_COOKIE['trk']))
+		{
+			$trk = $_COOKIE['trk'];
+		}
+	}
+
+	if( isset($trk) ){
+	
+		// $location = "http://".$_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI'];
+		// $location .= "?trk=" . $trk;
+		// wp_redirect( $location );
+		
+		//echo "<img src=\"http://efood.ascendan.co/wp-content/uploads/2015/04/Transparent.gif\" onload=\"alert('The image has loaded');\"/>";
+		
+		$servernameStr = "'" . htmlentities($_SERVER['SERVER_NAME'].$_SERVER['REQUEST_URI']) . "'";
+		$trkStr = "'" . htmlentities($trk) . "'";
+		echo "<img src=\"http://www.ascendan.co/wp-content/uploads/2015/04/Transparent.gif\" onload=\"  setTimeout( function(){ga('send', 'event', 'AC_EXPERIMENT', $servernameStr, $trkStr)}, 3000 );\" />";		
+		
+		// echo "<img src=\"http://efood.ascendan.co/wp-content/uploads/2015/04/Transparent.gif\" onload=\"_gaq.push(['_trackEvent' $servername, 'PAGE LOAD', $trk]);\" />";
+	}
+}
+add_action('template_redirect', 'wprdcv_param_redirect');
+*/
+
+
+
+
+
+/*
+add_filter( 'post_type_link', 'append_query_string', 10, 2 );
+function append_query_string( $url, $post ) 
+{
+    return $url.'?my_pid='.$post->ID;
+}
+
+
+add_filter( 'query_vars', 'addnew_query_vars', 10, 1 );
+function addnew_query_vars($vars)
+{   
+    $vars[] = 'var1'; // var1 is the name of variable you want to add       
+    return $vars;
+}
+
+add_action('init','add_query_args');
+function add_query_args()
+{ 
+    add_query_arg( 'var1', 'val1' );
+}
+*/
+
+
+
+
+
+/*
+function AC_TestFunction(){
+$genre_url = add_query_arg('genre', $term->slug, get_permalink());
+    # Outputs for example: http://my_wordpress.com/photos?genre=pop
+}
+add_action('ac_testplugin', 'AC_TestFunction');
+*/
+
+
+
+
+
+/*
+function AC_TestFunction(){
+$variables = "?f=0";
+foreach (getallheaders() as $name => $value) {
+    $variables .= "&$name=$value";
+}
+
+echo "<div class='ac_class' style='width:100px;height:100px; background-color:white;'>" . $variables . "</div>";
+
+$dom = new DOMDocument;
+    $dom->loadHTML($html);
+    $links = $dom->getElementsByTagName('a');
+    foreach ($links as $link){
+        $tmpLink = $link->getAttribute('href') . $variables;
+        $link->setAttribute('href',$tmpLink);
+    }
+}
+
+add_action('ac_testplugin', 'AC_TestFunction');
+*/
+
+
+
+/* Stop Adding Functions */
+
+?>

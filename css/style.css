@@ -1,0 +1,8 @@
+.column-start-date { width: 20%; }
+.column-end-date { width: 20%; }
+.manage_offer { width: 60%; }
+.offer_label { font-size: 14px; }
+.offer_input { width: 100%;}
+.clear { clear: both; height: 10px; }
+.offererror { width: 100%; margin-left: 50px; color: #FF0000; font-size: 12px; font-weight: 600; }
+.wide{width:100%;}
